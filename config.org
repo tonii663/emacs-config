@@ -1,0 +1,635 @@
+#+TITLE: Aj's Emacs Config
+#+AUTHOR: Anthony Brown
+
+* Startup Performance
+
+Make startup faster by reducing the frequency of garbage collection and then use a hook to measure Emacs startup time.
+
+Also, turn on =lexical-binding= for the init file!
+
+#+begin_src emacs-lisp
+
+  ;; -*- lexical-binding: t; -*-
+
+  ;; The default is 800 kilobytes.  Measured in bytes.
+  (setq gc-cons-threshold (* 50 1000 1000))
+  
+  ;; Profile emacs startup
+  (add-hook 'emacs-startup-hook
+			(lambda ()
+			  (message "*** Emacs loaded in %s seconds with %d garbage collections."
+					   (emacs-init-time "%.2f")
+					   gcs-done)))
+
+  ;; Window transperency
+  ;; (set-frame-parameter (selected-frame) 'alpha '(100 . 100))
+  ;; (add-to-list 'default-frame-alist '(alpha . (100 . 100)))
+  ;; (set-frame-parameter (selected-frame) 'fullscreen 'maximized)
+  ;; (add-to-list 'default-frame-alist '(fullscreen . maximized))
+
+#+end_src
+
+
+* USEFUL Settings
+** Buffer Settings
+#+begin_src emacs-lisp
+  ;; Start with windows split
+  (split-window-horizontally)
+
+  ;; Save location in files on exit
+  (save-place-mode 1)
+
+  ;; Automatically refresh files that were edited outside of emacs
+  (global-auto-revert-mode 1)
+
+  ;; Set every buffer to use utf-8
+  (set-language-environment "UTF-8")
+
+  ;; Default size for tabs
+  (setq-default tab-width 4)
+#+end_src
+
+** Config File Settings
+If I customize a setting from the UI, DO NOT modify my init.el file add everting to (custom-vars.el).
+
+#+begin_src emacs-lisp  
+  (setq custom-file (locate-user-emacs-file "custom-vars.el"))
+  (load custom-file 'noerror 'nomessage)
+#+end_src
+
+** General Emacs Settings
+Setting up how emacs should operate.
+#+begin_src emacs-lisp
+
+  (setq inhibit-startup-message t)  ;; Disable startup message
+  (setq ring-bell-function 'ignore) ;; Disable the alert bell
+  (setq undo-limit 20000000)        ;; Increase amount of undos
+  (setq undo-strong-limit 40000000) ;; Limit the max amount of undos
+  (setq create-lockfiles nil)       ;; Files starting and ending with # no longer gets created
+  (setq-default truncate-lines t)   ;; Truncate all lines. Don't fold
+
+  ;; Trucncate lines in markdown documents
+  (add-hook 'markdown-mode-hook (lambda () (setq truncate-lines t)))
+
+  ;; Set backup directory and keep my project folders clean
+  (setq backup-directory-alist '(("." . "~/.emacs_saves")))
+
+#+end_src
+
+** Disable Menu, toolbar, tooltip and scrollbar
+#+begin_src emacs-lisp
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+  (tooltip-mode -1)
+#+end_src
+
+** Setup basic visuals
+#+begin_src emacs-lisp
+  (electric-pair-mode 1)     ;; Auto create closing braces
+  (global-hl-line-mode)      ;; Higlight the line I am on
+  (show-paren-mode)          ;; Show matching parens
+  (display-time)             ;; Display time on mode line
+  (column-number-mode)       ;; Show column number
+  (blink-cursor-mode -1)     ;; Don't flash cursor
+#+end_src
+
+
+
+* PACKAGE MANAGEMENT
+** Setup package.el to work with MELPA.
+
+#+begin_src emacs-lisp
+  (require 'package)
+
+  (setq package-archives '(("melpa" . "https://melpa.org/packages/")
+			   ("org" . "https://orgmode.org/elpa/")
+			   ("elpa" . "https://elpa.gnu.org/packages/")))
+
+  (package-initialize)
+
+  ;; If package archive is empty then refresh them.
+  (unless package-archive-contents
+	(package-refresh-contents))
+#+end_src
+
+** Installing use-package
+
+#+begin_src emacs-lisp
+  ;; Initialize use-package on non linux machines
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+
+  (require 'use-package)
+  (setq use-package-always-ensure t)
+
+#+end_src
+
+
+* THEMES and FONTS
+** THEME
+#+begin_src emacs-lisp
+	(use-package doom-themes
+	  :ensure t
+	  :diminish)
+	(setq doom-themes-enable-bold t
+	  doom-themes-enable-italic t)
+
+	;; (load-theme 'misterioso)     ;; Sets the theme
+	;; (set-cursor-color "#fff000") ;; Sets cursor color
+	(load-theme 'doom-palenight t)  ;; doom-one
+
+#+end_src
+
+
+* FONTS
+** Set font size and background color
+#+begin_src emacs-lisp
+  (set-face-attribute 'default nil :height 120)
+  (setq-default line-spacing 0.10)
+
+  ;; Don't change text color when the line is highlighted. Do after turning on global-hl-line-mode.
+  (set-face-attribute 'hl-line nil :inherit nil :background "#333333")
+
+#+end_src
+
+
+* COMMENTS HIGLIGHTING
+#+begin_src emacs-lisp
+  (setq fixme-modes '(c++-mode c-mode emacs-lisp-mode csharp-mode java-mode))
+  (make-face 'font-lock-fixme-face)
+  (make-face 'font-lock-note-face)
+  (make-face 'font-lock-link-face)
+  (make-face 'font-lock-debug-face)
+  (make-face 'font-lock-remove-face)
+
+  (mapc (lambda (mode)
+	  (font-lock-add-keywords
+	   mode
+	   '(("\\<\\(TODO\\)" 1 'font-lock-fixme-face t)
+	     ("\\<\\(NOTE\\)" 1 'font-lock-note-face t)
+	     ("\\<\\(LINK\\)" 1 'font-lock-link-face t)
+	     ("\\<\\(REMOVE\\)" 1 'font-lock-remove-face t))))
+	fixme-modes)
+
+  (modify-face 'font-lock-fixme-face "Red" nil nil t nil t nil nil)
+  (modify-face 'font-lock-note-face "Dark Green" nil nil t nil t nil nil)
+  (modify-face 'font-lock-link-face "Yellow" nil nil t nil t nil nil)
+  (modify-face 'font-lock-remove-face "magenta1" nil nil t nil t nil nil)
+
+#+end_src
+
+
+
+* DIMINISH
+** Don't show certain minor modes on the modeline
+
+#+begin_src emacs-lisp
+  (use-package diminish)
+#+end_src
+
+
+
+* IVY, COUNSEL, SWIPER, PRESCIENT
+** Counsel setup
+#+begin_src emacs-lisp
+  (use-package counsel
+	:bind(("M-x"   . counsel-M-x)
+	  ("C-x b" . counsel-ibuffer)
+	  ("M-."   . counsel-find-file))
+	:config
+	(setq ivy-initial-inputs-alist nil)) ;; Don't start searches with ^
+
+#+end_src
+
+** Ivy setup and swiper keybinds
+#+begin_src emacs-lisp
+  (use-package ivy
+	:diminish
+	:bind (("C-s" . swiper)
+	   :map ivy-minibuffer-map
+	   ("C-l" . ivy-alt-done)
+	   ("C-j" . ivy-next-line)
+	   ("C-k" . ivy-previous-line)
+	   :map ivy-switch-buffer-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-l" . ivy-done)
+	   ("C-d" . ivy-switch-buffer-kill)
+	   :map ivy-reverse-i-search-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-d" . ivy-reverse-i-search-kill)))
+
+#+end_src
+
+** PRESCIENT
+Makes the filtering of ivy menus smarter. It gives prefrences to recently used
+commands.
+
+#+begin_src emacs-lisp
+  (use-package ivy-prescient
+	:after counsel
+	:diminish
+	:config
+	(ivy-prescient-mode 1))
+
+  ;; Sort by length
+  (setq prescient-sort-length-enable t)
+#+end_src
+
+
+* MAGIT
+Github client for emacs.
+#+begin_src emacs-lisp
+  (use-package magit)
+#+end_src
+
+
+* HELPFUL
+Change the default emacs help funtionality to give more information.
+
+#+begin_src emacs-lisp
+  (use-package helpful
+    :ensure t
+    :custom
+    (counsel-describe-function-function #'helpful-callable)
+    (counsel-describe-variable-function #'helpful-variable)
+    :bind
+    ([remap describe-function] . counsel-describe-function)
+    ([remap describe-command]  . helpful-command)
+    ([remap describe-variable] . counsel-describe-variable)
+    ([remap describe-key]      . helpful-key))
+#+end_src
+
+
+* PROJECTILE
+Project management
+#+begin_src emacs-lisp
+  (use-package projectile
+	:ensure t
+	:diminish
+	:config (projectile-mode)
+	:custom (projectile-completion-system 'ivy)
+	:bind-keymap
+	("C-c p" . projectile-command-map)
+	:init
+	(when (file-directory-p '"w:/")
+	  (setq projectile-project-search-path '("w:/")))
+	(setq projectile-switch-project-action #'projectile-dired))
+
+  (use-package counsel-projectile
+	:config (counsel-projectile-mode))
+
+  (setq projectile-enable-caching t)
+  (setq projectile-indexing-method 'hybrid) ;; alien
+  (setq projectile-globally-ignored-file-suffixes
+	'("#" "~" ".swp" ".o" ".so" ".exe" ".dll" ".elc" ".pyc" ".jar"))
+  (setq projectile-globally-ignored-directories
+	'(".git" "node_modules" "__pycache__" ".vs" "build"))
+  (setq projectile-globally-ignored-files '("TAGS" "tags" ".DS_Store"))
+
+#+end_src
+
+
+* WHICH KEY
+Shows the possible key combinations when you partially enter a key
+combination
+#+begin_src emacs-lisp
+  (use-package which-key
+    :init(which-key-mode)
+    :diminish which-key-mode
+    :config
+    (setq which-key-idle-delay 2))
+#+end_src
+
+
+* ACE JUMP MODE
+** Jump to any leading character on screen
+#+begin_src emacs-lisp
+(use-package ace-jump-mode
+  :config
+  (global-set-key (kbd "C->") 'ace-jump-mode))
+#+end_src
+
+
+* RAINBOW MODE
+** Render hex colors as actual colors
+#+begin_src emacs-lisp
+  (use-package rainbow-mode
+    :defer t)
+#+end_src
+
+
+* ELCORD (Discord)
+** Show emacs in my discord status.
+#+begin_src emacs-lisp
+  (use-package elcord
+	:init (elcord-mode))
+#+end_src
+
+
+* MODE LINE
+** Data formating
+#+begin_src emacs-lisp
+  (setq display-time-format "%l:%M %p %b %y"
+		display-time-default-load-average nil)
+  
+#+end_src
+
+** DOOM MODE LINE
+#+begin_src emacs-lisp
+
+  (use-package doom-modeline
+	:ensure t)
+
+  (doom-modeline-mode 1)
+  (setq doom-modeline-minor-modes t)
+#+end_src
+
+
+* AUTO-COMPLETE
+#+begin_src emacs-lisp
+  (defun anthony-auto-complete-config()
+	(ac-config-default)
+	(setq ac-auto-start nil)
+	(setq ac-ignore-case 'smart))
+
+  (use-package auto-complete
+	  :init
+	  (add-hook 'c-mode-common-hook 'anthony-auto-complete-config))
+
+  ;; Auto Complete
+  (global-set-key (kbd "M-<return>") 'auto-complete)
+
+#+end_src
+
+
+* CC-MODE
+** Initialize
+#+begin_src emacs-lisp
+  (use-package cc-mode
+	:config
+	(ac-config-default)
+	(setq ac-auto-start nil)
+	(setq ac-ignore-case 'smart))
+
+  (defun anthony-c-mode-common-config ()
+	(setq c-default-style "bsd") 
+	(setq c-basic-offset 4)
+	(setq tab-width 4)
+	;; (subword-mode)
+	(message "CC MODE"))
+
+
+  (setq c-default-style
+		'((java-mode . "bsd")
+		  (csharp-mode. "bsd")
+		  (other . "bsd")))
+
+  (add-hook 'c-mode-common-hook 'anthony-c-mode-common-config)
+
+#+end_src
+
+
+* C & C++
+** Treat '.h' files like cpp files
+#+begin_src emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
+#+end_src
+
+
+* CSHARP
+** csharp-mode and omnisharp
+#+begin_src emacs-lisp
+
+  (use-package csharp-mode
+	:mode "\\.cs\\'"
+	:ensure t
+	:defer t
+	:init
+	(use-package omnisharp
+	  :after company
+	  :config
+	  (add-hook 'csharp-mode-hook 'omnisharp-mode)
+	  (add-hook 'csharp-mode-hook 'company-mode)
+	  (add-to-list 'company-backends 'company-omnisharp)
+	  (define-key omnisharp-mode-map (kbd "C-.") 'omnisharp-go-to-definition-other-window)
+	  (define-key omnisharp-mode-map [f12] 'omnisharp-find-usages))
+	:config
+	(company-omnisharp t))
+
+#+end_src
+
+
+
+* Company
+Completion framwork
+#+begin_src emacs-lisp 
+  (use-package company
+	:diminish)
+#+end_src
+
+
+#+begin_src emacs-lisp
+
+#+end_src
+
+
+* COMPILE
+** Setting build file
+#+begin_src emacs-lisp
+
+  (if (eq system-type 'windows-nt)
+	  (setq anthony-makescript "build.bat")
+	(setq anthony-makescript "build.sh"))
+
+#+end_src
+
+
+** Setup compilation
+#+begin_src emacs-lisp
+  (use-package compile
+	:config
+	(setq compilation-context-lines 0))
+
+  (defun find-project-directory-recursive ()
+	"Recursively search for a makefile."
+	(interactive)
+	(if (file-exists-p anthony-makescript) t
+	  (cd "../")
+	  (find-project-directory-recursive)))
+
+  ;; (defun lock-compilation-directory ()
+  ;;   "The compilation process should NOT hunt for a makefile"
+  ;;   (interactive)
+  ;;   (setq compilation-directory-locked t)
+  ;;   (message "Compilation directory is locked."))
+
+  ;; (defun unlock-compilation-directory ()
+  ;;   "The compilation process SHOULD hunt for a makefile"
+  ;;   (interactive)
+  ;;   (setq compilation-directory-locked nil)
+  ;;   (message "Compilation directory is roaming."))
+
+  ;; (defun find-project-directory ()
+  ;;   "Find the project directory."
+  ;;   (interactive)
+  ;;   (setq find-project-from-directory default-directory)
+  ;;   (switch-to-buffer-other-window "*compilation*")
+  ;;   (if compilation-directory-locked (cd last-compilation-directory)
+  ;; 	(cd find-project-from-directory)
+  ;; 	(find-project-directory-recursive)
+  ;; 	(setq last-compilation-directory default-directory)))
+
+  (defun make-without-asking ()
+	"Make the current build."
+	(interactive)
+	(if (find-project-directory-recursive) (compile anthony-makescript))
+	(other-window 1))
+
+
+  (defun search-man-for-function(name)
+	(interactive "sFunction Name: \n")
+	(setq cmnd (concat "wsl -e bash -c \"man " name "\""))
+	(shell-command cmnd))
+
+
+#+end_src
+
+
+* BUFFER NAV
+** Custom buffer navigation functions
+#+begin_src emacs-lisp
+  (defun indent-and-move-next-line()
+	(interactive)
+	(indent-for-tab-command)
+	(next-line))
+
+  (defun indent-and-move-previous-line()
+	(interactive)
+	(indent-for-tab-command)
+	(previous-line))
+
+  (defun new-line-below-and-move()
+	(interactive)
+	(move-end-of-line 1)
+	(open-line 1)
+	(next-line))
+
+  (defun new-line-above-and-move()
+	(interactive)
+	(move-beginning-of-line 1)
+	(open-line 1))
+
+
+  (defun open-file-other-window()
+	(interactive)
+	(setq old-buffer-name (buffer-name))
+	(counsel-find-file)
+	(setq new-buffer-name (buffer-name))
+	(switch-to-buffer old-buffer-name)
+	(other-window 1)
+	(switch-to-buffer new-buffer-name))
+
+#+end_src
+** Buffer Navigation Keybinds
+#+begin_src emacs-lisp
+  ;; Buffer Navigation
+  (global-set-key (kbd "<home>") 'beginning-of-buffer)
+  (global-set-key (kbd "<end>") 'end-of-buffer)
+
+  ;; Zooming
+  (global-set-key (kbd "C-=") 'text-scale-increase)
+  (global-set-key (kbd "C--") 'text-scale-decrease)
+
+  ;; Opening buffers
+  (global-set-key (kbd "M->") 'open-file-other-window)
+
+  ;; Execting custom commands
+  (global-set-key [f11] 'search-man-for-function)
+  (global-set-key [f10] 'shell-command)
+
+
+  ;; Switching buffers
+  (global-set-key (kbd "M-<up>")    'windmove-up)
+  (global-set-key (kbd "M-<down>")  'windmove-down) 
+  (global-set-key (kbd "M-<left>")  'windmove-left) 
+  (global-set-key (kbd "M-<right>") 'windmove-right)
+  (global-set-key (kbd "C-x b") 'counsel-switch-buffer)
+
+
+  ;; Keyboard Macro
+  (global-set-key (kbd "C-{") 'start-kbd-macro)
+  (global-set-key (kbd "C-}") 'end-kbd-macro)
+  (global-set-key (kbd "C-'") 'call-last-kbd-macro)
+
+  ;; Errors
+  (global-set-key (kbd "C-\\") 'next-error)
+#+end_src
+
+** Buffer Modificaton Keybinds
+#+begin_src emacs-lisp
+  ;; Creating new lines
+  (global-set-key (kbd "C-o") 'new-line-below-and-move)
+  (global-set-key (kbd "C-S-o") 'new-line-above-and-move)
+
+  ;; Indenting
+  (global-set-key (kbd "M-]") 'indent-and-move-next-line)
+  (global-set-key (kbd "M-[") 'indent-and-move-previous-line)
+
+  ;; Saving
+  (global-set-key (kbd "M-s") 'save-buffer) 
+
+  ;; Search and Replace
+  (global-set-key (kbd "M-/") 'query-replace)
+
+#+end_src
+
+ 
+
+
+
+* ACK
+#+begin_src emacs-lisp
+
+  (defvar ack-history nil
+    "History for the `ack' command.")
+
+  ;; (defun ack (command-args)
+  ;;   (interactive
+  ;;   (let ((ack-command "ack --nofilter --nogroup --with-filename "))
+  ;;     (list (read-shell-command "Run ack (like this): " ack-command 'ack-history))))
+  ;; (let ((compilation-disable-input t))
+  ;;     (compilation-start (concat command-args " < " null-device) 'grep-mode)))
+
+  (defvar ack-command "ack --nogroup --nocolor ")
+  (defvar ack-history nil)
+  (defvar ack-host-defaults-alist nil)
+  (defun ack ()
+    "Like grep, but using ack-command as the default"
+    (interactive)
+					  ; Make sure grep has been initialized
+    (if (>= emacs-major-version 22)
+	(require 'grep)
+      (require 'compile))
+					  ; Close STDIN to keep ack from going into filter mode
+    (let ((null-device (format "< %s" null-device))
+	  (grep-command ack-command)
+	  (grep-history ack-history)
+	  (grep-host-defaults-alist ack-host-defaults-alist))
+      (call-interactively 'grep)
+      (setq ack-history             grep-history
+	    ack-host-defaults-alist grep-host-defaults-alist)))
+  (put 'upcase-region 'disabled nil)
+
+#+end_src
+
+
+* TESTING
+#+begin_src emacs-lisp
+  ;; (use-package eshell-info-banner
+  ;;   :ensure t
+  ;;   :defer t
+  ;;   :hook (eshell-banner-load . eshell-info-banner-update-banner))
+
+  ;; (split-window-horizontally)
+#+end_src
