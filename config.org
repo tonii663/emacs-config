@@ -2,24 +2,36 @@
 #+AUTHOR: Anthony Brown
 
 * Startup Performance
-
 Make startup faster by reducing the frequency of garbage collection and then use a hook to measure Emacs startup time.
-
 Also, turn on =lexical-binding= for the init file!
 
 #+begin_src emacs-lisp
 
-  ;; -*- lexical-binding: t; -*-
-
-  ;; The default is 800 kilobytes.  Measured in bytes.
-  (setq gc-cons-threshold (* 50 1000 1000))
-  
-  ;; Profile emacs startup
   (add-hook 'emacs-startup-hook
 			(lambda ()
-			  (message "*** Emacs loaded in %s seconds with %d garbage collections."
-					   (emacs-init-time "%.2f")
+			  (message "Emacs ready in %s with %d garbage collections."
+					   (format "%.2f seconds"
+							   (float-time
+								(time-subtract after-init-time before-init-time)))
 					   gcs-done)))
+
+  (setq gc-cons-threshold (* 50 1000 1000))
+
+  ;; (defvar last-file-name-handler-alist file-name-handler-alist)
+  ;; (setq gc-cons-threshold 402653184
+  ;; 	  gc-cons-percentage 0.6
+  ;; 	  file-name-handler-alist nil)
+
+  ;; ;
+										  ; The default is 800 kilobytes.  Measured in bytes.
+  ;; (setq gc-cons-threshold (* 50 1000 1000))
+
+  ;; Profile emacs startup
+  ;; (add-hook 'emacs-startup-hook
+  ;; (lambda ()
+  ;; (message "*** Emacs loaded in %s seconds with %d garbage collections."
+  ;; (emacs-init-time "%.2f")
+  ;; gcs-done)))
 
   ;; Window transperency
   ;; (set-frame-parameter (selected-frame) 'alpha '(100 . 100))
@@ -58,7 +70,7 @@ If I customize a setting from the UI, DO NOT modify my init.el file add everting
 #+end_src
 
 ** General Emacs Settings
-Setting up how emacs should operate.
+- Setting up how emacs should operate.
 #+begin_src emacs-lisp
 
   (setq inhibit-startup-message t)  ;; Disable startup message
@@ -69,13 +81,35 @@ Setting up how emacs should operate.
   (setq-default truncate-lines t)   ;; Truncate all lines. Don't fold
 
   ;; Trucncate lines in markdown documents
-  (add-hook 'markdown-mode-hook (lambda () (setq truncate-lines t)))
+  (add-hook 'markdown-mode-hook (lambda () (setq truncate-lines nil)))
+
+  ;; No screwing with my middle mouse button
+  (global-unset-key [mouse-2])
+
+#+end_src
+
+- Set emacs backup file backup functionality 
+#+begin_src emacs-lisp
 
   ;; Set backup directory and keep my project folders clean
   (setq backup-directory-alist '(("." . "~/.emacs_saves")))
 
+  ;; Disable making backup files.
+  ;; (setq make-backup-files nil)
 #+end_src
 
+- Set auto save file functionality
+  #+begin_src emacs-lisp
+	;; https://www.youtube.com/watch?v=XZjyJG-sFZI
+	;; Auto save dosen't create the path automatically.
+	;; (setq backup-dir '"~/.emacs_backups")
+	;; (make-directory 'backup-dir)
+
+	;; (setq auto-save-list-file-prefix backup-dir)
+	;;	(setq auto-save-file-name-transforms '(".*" backup-dir) t)
+
+  #+end_src
+  
 ** Disable Menu, toolbar, tooltip and scrollbar
 #+begin_src emacs-lisp
   (menu-bar-mode -1)
@@ -88,11 +122,43 @@ Setting up how emacs should operate.
 #+begin_src emacs-lisp
   (electric-pair-mode 1)     ;; Auto create closing braces
   (global-hl-line-mode)      ;; Higlight the line I am on
-  (show-paren-mode)          ;; Show matching parens
+  (show-paren-mode 1)          ;; Show matching parens
   (display-time)             ;; Display time on mode line
   (column-number-mode)       ;; Show column number
   (blink-cursor-mode -1)     ;; Don't flash cursor
 #+end_src
+
+
+
+
+* COMMENTS HIGLIGHTING
+#+begin_src emacs-lisp
+  (setq fixme-modes '(c++-mode c-mode emacs-lisp-mode csharp-mode java-mode python-mode))
+  (make-face 'font-lock-fixme-face)
+  (make-face 'font-lock-note-face)
+  (make-face 'font-lock-link-face)
+  (make-face 'font-lock-debug-face)
+  (make-face 'font-lock-remove-face)
+  (make-face 'font-lock-important-face)
+
+  (mapc (lambda (mode)
+	  (font-lock-add-keywords
+	   mode
+	   '(("\\<\\(TODO\\)" 1 'font-lock-fixme-face t)
+		 ("\\<\\(NOTE\\)" 1 'font-lock-note-face t)
+		 ("\\<\\(LINK\\)" 1 'font-lock-link-face t)
+		 ("\\<\\(IMPORTANT\\)" 1 'font-lock-important-face t)
+		 ("\\<\\(REMOVE\\)" 1 'font-lock-remove-face t))))
+	fixme-modes)
+
+  (modify-face 'font-lock-fixme-face "Red" nil nil t nil t nil nil)
+  (modify-face 'font-lock-note-face "Dark Green" nil nil t nil t nil nil)
+  (modify-face 'font-lock-link-face "lawn green" nil nil t nil t nil nil)
+  (modify-face 'font-lock-remove-face "magenta1" nil nil t nil t nil nil)
+  (modify-face 'font-lock-important-face "Yellow" nil nil t nil t nil nil)
+
+#+end_src
+
 
 
 
@@ -103,8 +169,8 @@ Setting up how emacs should operate.
   (require 'package)
 
   (setq package-archives '(("melpa" . "https://melpa.org/packages/")
-			   ("org" . "https://orgmode.org/elpa/")
-			   ("elpa" . "https://elpa.gnu.org/packages/")))
+						   ("org" . "https://orgmode.org/elpa/")
+						   ("elpa" . "https://elpa.gnu.org/packages/")))
 
   (package-initialize)
 
@@ -118,85 +184,96 @@ Setting up how emacs should operate.
 #+begin_src emacs-lisp
   ;; Initialize use-package on non linux machines
   (unless (package-installed-p 'use-package)
-    (package-install 'use-package))
+	(package-install 'use-package))
 
   (require 'use-package)
-  (setq use-package-always-ensure t)
+  ;; Always ensure packages are downloaded by default
+  ;; (setq use-package-always-ensure t)
 
+#+end_src
+
+
+* Benchmark Startup
+#+begin_src emacs-lisp
+  ;; (setq use-package-compute-statistics t)
+
+  ;; (use-package benchmark-init
+  ;; :config
+	;; To disable collection of benchmark data after init is done.
+  ;; (add-hook 'after-init-hook 'benchmark-init/deactivate))
 #+end_src
 
 
 * THEMES and FONTS
 ** THEME
 #+begin_src emacs-lisp
-	(use-package doom-themes
-	  :ensure t
-	  :diminish)
-	(setq doom-themes-enable-bold t
-	  doom-themes-enable-italic t)
+  (use-package doom-themes
+	:diminish)
 
-	;; (load-theme 'misterioso)     ;; Sets the theme
-	;; (set-cursor-color "#fff000") ;; Sets cursor color
-	(load-theme 'doom-palenight t)  ;; doom-one
+  (setq doom-themes-enable-bold t)
+  (setq doom-themes-enable-italic nil)
+
+  ;; (load-theme 'tango-dark)
+  ;; (load-theme 'misterioso)     ;; Sets the theme
+  (set-cursor-color "#fff000") ;; Sets cursor color
+  ;;(load-theme 'doom-palenight t)  ;; doom-one
+  (load-theme 'doom-old-hope t)
 
 #+end_src
 
-
-* FONTS
-** Set font size and background color
+** FONTS
+Set font size and background color
 #+begin_src emacs-lisp
   (set-face-attribute 'default nil :height 120)
   (setq-default line-spacing 0.10)
 
   ;; Don't change text color when the line is highlighted. Do after turning on global-hl-line-mode.
   (set-face-attribute 'hl-line nil :inherit nil :background "#333333")
-
 #+end_src
-
-
-* COMMENTS HIGLIGHTING
-#+begin_src emacs-lisp
-  (setq fixme-modes '(c++-mode c-mode emacs-lisp-mode csharp-mode java-mode))
-  (make-face 'font-lock-fixme-face)
-  (make-face 'font-lock-note-face)
-  (make-face 'font-lock-link-face)
-  (make-face 'font-lock-debug-face)
-  (make-face 'font-lock-remove-face)
-
-  (mapc (lambda (mode)
-	  (font-lock-add-keywords
-	   mode
-	   '(("\\<\\(TODO\\)" 1 'font-lock-fixme-face t)
-	     ("\\<\\(NOTE\\)" 1 'font-lock-note-face t)
-	     ("\\<\\(LINK\\)" 1 'font-lock-link-face t)
-	     ("\\<\\(REMOVE\\)" 1 'font-lock-remove-face t))))
-	fixme-modes)
-
-  (modify-face 'font-lock-fixme-face "Red" nil nil t nil t nil nil)
-  (modify-face 'font-lock-note-face "Dark Green" nil nil t nil t nil nil)
-  (modify-face 'font-lock-link-face "Yellow" nil nil t nil t nil nil)
-  (modify-face 'font-lock-remove-face "magenta1" nil nil t nil t nil nil)
-
-#+end_src
-
 
 
 * DIMINISH
-** Don't show certain minor modes on the modeline
-
+Don't show certain minor modes on the modeline
 #+begin_src emacs-lisp
   (use-package diminish)
 #+end_src
 
 
 
+* DASHBOARD
+Emacs starup dashboard
+#+begin_src emacs-lisp
+  (use-package dashboard
+	:config
+	(dashboard-setup-startup-hook))
+
+  ;; Set the title
+  (setq dashboard-banner-logo-title "Welcome Anthony")
+
+  ;; Set the banner
+  (setq dashboard-startup-banner 2)
+
+  (setq dashboard-center-content t)
+
+  ;; What items show on the dashboard
+  (setq dashboard-items '((projects . 5)
+						  (recents  . 5)))
+  
+  (setq dashboard-set-navigator t)
+  (setq dashboard-set-init-info t)
+  (setq dashboard-projects-switch-function 'counsel-projectile-switch-project-by-name)
+
+#+end_src
+
+
 * IVY, COUNSEL, SWIPER, PRESCIENT
 ** Counsel setup
 #+begin_src emacs-lisp
   (use-package counsel
+	:diminish
 	:bind(("M-x"   . counsel-M-x)
-	  ("C-x b" . counsel-ibuffer)
-	  ("M-."   . counsel-find-file))
+		  ("C-x b" . counsel-ibuffer)
+		  ("M-."   . counsel-find-file))
 	:config
 	(setq ivy-initial-inputs-alist nil)) ;; Don't start searches with ^
 
@@ -224,7 +301,6 @@ Setting up how emacs should operate.
 ** PRESCIENT
 Makes the filtering of ivy menus smarter. It gives prefrences to recently used
 commands.
-
 #+begin_src emacs-lisp
   (use-package ivy-prescient
 	:after counsel
@@ -240,32 +316,33 @@ commands.
 * MAGIT
 Github client for emacs.
 #+begin_src emacs-lisp
-  (use-package magit)
+  (use-package magit
+	:diminish
+	:defer t)
 #+end_src
 
 
 * HELPFUL
 Change the default emacs help funtionality to give more information.
-
 #+begin_src emacs-lisp
   (use-package helpful
-    :ensure t
-    :custom
-    (counsel-describe-function-function #'helpful-callable)
-    (counsel-describe-variable-function #'helpful-variable)
-    :bind
-    ([remap describe-function] . counsel-describe-function)
-    ([remap describe-command]  . helpful-command)
-    ([remap describe-variable] . counsel-describe-variable)
-    ([remap describe-key]      . helpful-key))
+	:custom
+	(counsel-describe-function-function #'helpful-callable)
+	(counsel-describe-variable-function #'helpful-variable)
+	(counsel-describe-symbol-function   #'helpful-symbol)
+	:bind
+	([remap describe-function] . counsel-describe-function)
+	([remap describe-command]  . helpful-command)
+	([remap describe-variable] . counsel-describe-variable)
+	([remap describe-key]      . helpful-key)
+	([remap describe-symbol]   . counsel-describe-symbol))
 #+end_src
 
 
-* PROJECTILE
+** PROJECTILE
 Project management
 #+begin_src emacs-lisp
   (use-package projectile
-	:ensure t
 	:diminish
 	:config (projectile-mode)
 	:custom (projectile-completion-system 'ivy)
@@ -305,9 +382,10 @@ combination
 * ACE JUMP MODE
 ** Jump to any leading character on screen
 #+begin_src emacs-lisp
-(use-package ace-jump-mode
-  :config
-  (global-set-key (kbd "C->") 'ace-jump-mode))
+  (use-package ace-jump-mode
+	:diminish
+	:config
+	(global-set-key (kbd "C->") 'ace-jump-mode))
 #+end_src
 
 
@@ -315,7 +393,7 @@ combination
 ** Render hex colors as actual colors
 #+begin_src emacs-lisp
   (use-package rainbow-mode
-    :defer t)
+	:defer t)
 #+end_src
 
 
@@ -337,12 +415,21 @@ combination
 
 ** DOOM MODE LINE
 #+begin_src emacs-lisp
-
-  (use-package doom-modeline
-	:ensure t)
+  (use-package doom-modeline)
 
   (doom-modeline-mode 1)
-  (setq doom-modeline-minor-modes t)
+  (setq doom-modeline-minor-modes nil)
+
+
+#+end_src
+
+** MOOD LINE
+#+begin_src emacs-lisp
+  ;; (use-package mood-line
+  ;; :ensure t)
+
+  ;; (mood-line-mode)
+
 #+end_src
 
 
@@ -354,11 +441,10 @@ combination
 	(setq ac-ignore-case 'smart))
 
   (use-package auto-complete
-	  :init
-	  (add-hook 'c-mode-common-hook 'anthony-auto-complete-config))
-
-  ;; Auto Complete
-  (global-set-key (kbd "M-<return>") 'auto-complete)
+	:diminish
+	:init
+	(add-hook 'c-mode-common-hook 'anthony-auto-complete-config)
+	(global-set-key (kbd "M-<return>") 'auto-complete))
 
 #+end_src
 
@@ -372,20 +458,33 @@ combination
 	(setq ac-auto-start nil)
 	(setq ac-ignore-case 'smart))
 
-  (defun anthony-c-mode-common-config ()
-	(setq c-default-style "bsd") 
-	(setq c-basic-offset 4)
-	(setq tab-width 4)
-	;; (subword-mode)
-	(message "CC MODE"))
 
+#+end_src
 
-  (setq c-default-style
-		'((java-mode . "bsd")
-		  (csharp-mode. "bsd")
-		  (other . "bsd")))
+** Code Style and formating
+#+begin_src emacs-lisp
+	(defun anthony-c-mode-common-config ()
+	  (message "CC MODE"))
 
-  (add-hook 'c-mode-common-hook 'anthony-c-mode-common-config)
+	(add-hook 'c-mode-common-hook 'anthony-c-mode-common-config)
+
+	(c-add-style "anthony-cc-style"
+				 '((c-basic-offset . 4)
+				   (tab-width . 4)				 
+				   (c-offsets-alist (case-label . +)
+									(substatement-open . 0)
+									(inline-open . 0)
+									(statement-cont . 0)
+									(statement-case-open . 0)
+									(statement-cont . 0)
+									(brace-list-close  0)
+									)))
+
+	  (setq c-default-style  
+			'((java-mode		. "anthony-cc-style")
+			  (csharp-mode	. "anthony-cc-style")
+			  (other			. "anthony-cc-style")))
+
 
 #+end_src
 
@@ -394,17 +493,70 @@ combination
 ** Treat '.h' files like cpp files
 #+begin_src emacs-lisp
   (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
+  (add-to-list 'auto-mode-alist '("\\.hpp\\'" . c++-mode))
+  
+  (defun anthony-c-hook()
+	(defun casey-find-corresponding-file ()
+	  "Find the file that corresponds to this one."
+	  (interactive)
+	  (setq CorrespondingFileName nil)
+	  (setq BaseFileName (file-name-sans-extension buffer-file-name))
+	  (if (string-match "\\.c" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".h")))
+	  (if (string-match "\\.h" buffer-file-name)
+		  (if (file-exists-p (concat BaseFileName ".c")) (setq CorrespondingFileName (concat BaseFileName ".c"))
+			(setq CorrespondingFileName (concat BaseFileName ".cpp"))))
+	  (if (string-match "\\.hin" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".cin")))
+	  (if (string-match "\\.cin" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".hin")))
+	  (if (string-match "\\.cpp" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".h")))
+	  (if CorrespondingFileName (find-file CorrespondingFileName)
+		(error "Unable to find a corresponding file")))
+
+	(defun casey-find-corresponding-file-other-window ()
+	  "Find the file that corresponds to this one."
+	  (interactive)
+	  (find-file-other-window buffer-file-name)
+	  (casey-find-corresponding-file)
+	  (other-window -1))
+
+	(define-key c++-mode-map [f3] 'casey-find-corresponding-file)
+	(define-key c++-mode-map [f4] 'casey-find-corresponding-file-other-window)
+
+
+	(defun anthony-header-file-format()
+	  ;; Insert header guards.
+	  (setq baseFileName (file-name-sans-extension (file-name-nondirectory buffer-file-name)))
+	  (insert "#ifndef ")
+	  (push-mark)
+	  (insert baseFileName)
+	  (upcase-region (mark) (point))
+	  (pop-mark)
+	  (insert "_H\n")  
+	  (insert "#define ")
+	  (push-mark)
+	  (insert baseFileName)
+	  (upcase-region (mark) (point))
+	  (pop-mark)
+	  (insert "_H\n\n\n")
+	  (insert "#endif"))
+
+	(cond ((file-exists-p buffer-file-name) t)
+		  ((string-match "[.]h" buffer-file-name) (anthony-header-file-format))
+		  ((string-match "[.]hpp" buffer-file-name) (anthony-header-file-format))))
+
+  (add-hook 'c-mode-common-hook 'anthony-c-hook)
 #+end_src
 
 
-* CSHARP
+** CSHARP
 ** csharp-mode and omnisharp
 #+begin_src emacs-lisp
 
   (use-package csharp-mode
 	:mode "\\.cs\\'"
-	:ensure t
-	:defer t
 	:init
 	(use-package omnisharp
 	  :after company
@@ -413,7 +565,8 @@ combination
 	  (add-hook 'csharp-mode-hook 'company-mode)
 	  (add-to-list 'company-backends 'company-omnisharp)
 	  (define-key omnisharp-mode-map (kbd "C-.") 'omnisharp-go-to-definition-other-window)
-	  (define-key omnisharp-mode-map [f12] 'omnisharp-find-usages))
+	  (define-key omnisharp-mode-map [f12] 'omnisharp-find-usages)
+	  (define-key omnisharp-mode-map [f2] 'omnisharp-rename))
 	:config
 	(company-omnisharp t))
 
@@ -426,6 +579,8 @@ Completion framwork
 #+begin_src emacs-lisp 
   (use-package company
 	:diminish)
+
+  (add-hook 'after-init-hook 'global-company-mode)
 #+end_src
 
 
@@ -443,7 +598,6 @@ Completion framwork
 	(setq anthony-makescript "build.sh"))
 
 #+end_src
-
 
 ** Setup compilation
 #+begin_src emacs-lisp
@@ -486,6 +640,7 @@ Completion framwork
 	(if (find-project-directory-recursive) (compile anthony-makescript))
 	(other-window 1))
 
+  (global-set-key (kbd "M-m") 'make-without-asking)
 
   (defun search-man-for-function(name)
 	(interactive "sFunction Name: \n")
@@ -590,46 +745,197 @@ Completion framwork
 
 * ACK
 #+begin_src emacs-lisp
-
+  
   (defvar ack-history nil
-    "History for the `ack' command.")
-
-  ;; (defun ack (command-args)
-  ;;   (interactive
-  ;;   (let ((ack-command "ack --nofilter --nogroup --with-filename "))
-  ;;     (list (read-shell-command "Run ack (like this): " ack-command 'ack-history))))
-  ;; (let ((compilation-disable-input t))
-  ;;     (compilation-start (concat command-args " < " null-device) 'grep-mode)))
+	"History for the `ack' command.")
 
   (defvar ack-command "ack --nogroup --nocolor ")
   (defvar ack-history nil)
   (defvar ack-host-defaults-alist nil)
   (defun ack ()
-    "Like grep, but using ack-command as the default"
-    (interactive)
+	"Like grep, but using ack-command as the default"
+	(interactive)
 					  ; Make sure grep has been initialized
-    (if (>= emacs-major-version 22)
+	(if (>= emacs-major-version 22)
 	(require 'grep)
-      (require 'compile))
+	  (require 'compile))
 					  ; Close STDIN to keep ack from going into filter mode
-    (let ((null-device (format "< %s" null-device))
+	(let ((null-device (format "< %s" null-device))
 	  (grep-command ack-command)
 	  (grep-history ack-history)
 	  (grep-host-defaults-alist ack-host-defaults-alist))
-      (call-interactively 'grep)
-      (setq ack-history             grep-history
-	    ack-host-defaults-alist grep-host-defaults-alist)))
+	  (call-interactively 'grep)
+	  (setq ack-history             grep-history
+		ack-host-defaults-alist grep-host-defaults-alist)))
   (put 'upcase-region 'disabled nil)
+
+#+end_src
+
+
+* GLSL
+#+begin_src
+  (use-package glsl-mode)
+  (add-to-list 'auto-mode-alist '("\\.glsl\\'" . glsl-mode))
+#+end_src
+
+
+* SCROLLING
+#+begin_src emacs-lisp
+  (use-package good-scroll
+	:init
+	(good-scroll-mode 1))
+
+  (global-set-key [next] #'good-scroll-up-full-screen)
+  (global-set-key [prior] #'good-scroll-down-full-screen)
+
+#+end_src
+
+
+* Web Mode
+#+begin_src emacs-lisp
+
+  ;; (use-package web-mode
+  ;;   :config
+  ;;   ;; Indentation
+  ;;   (setq web-mode-markup-indent-offset 4)
+  ;;   (setq web-mode-css-indent-offset 4)
+  ;;   (setq web-mode-code-indent-offset 4)
+
+  ;;   ;; Jump between the tags opening and closing
+  ;;   (define-key web-mode-map (kbd "C-n") 'web-mode-tag-match)
+
+  ;;   (setq web-mode-enable-css-colorization t)
+
+  ;;   (setq web-mode-enable-current-element-highlight t)
+
+  ;;   (setq web-mode-ac-sources-alist '(("css" . (ac-source-css-property))
+  ;; 									("html" . (ac-source-words-in-buffer ac-source-abbrev))))
+  ;;   )
+
+  ;; (add-to-list 'auto-mode-alist '("\\.html\\'"		. web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.phtml\\'"		. web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.tpl\\.php\\'" . web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.[agj]sp\\'"	. web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.as[cp]x\\'"	. web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.erb\\'"		. web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.mustache\\'"	. web-mode))
+  ;; (add-to-list 'auto-mode-alist '("\\.djhtml\\'"	. web-mode))
+
+  ;; (use-package js2-mode)
 
 #+end_src
 
 
 * TESTING
 #+begin_src emacs-lisp
+
+  (setq gc-cons-threshold (* 2 1000 1000))
+  
   ;; (use-package eshell-info-banner
   ;;   :ensure t
   ;;   :defer t
   ;;   :hook (eshell-banner-load . eshell-info-banner-update-banner))
 
   ;; (split-window-horizontally)
+  ;; (use-package smooth-scrolling
+  ;; 	:init
+  ;; 	(smooth-scrolling-mode 1))
+
+  ;; (use-package filetree)
+
+  ;; (use-package all-the-icons
+  ;;   :if (display-graphic-p))
+
+  ;; (setq all-the-icons-scale-factor 1.1)
+
+  ;; (propertize (all-the-icons-octicon "package")
+  ;; 			'face `(:family ,(all-the-icons-fileicon-family) :height 0.5)
+  ;; 			'display '(raise -0.1))
+
+  ;; Displays the current function
+  (which-function-mode 1)
+
+  (diminish 'eldoc-mode)
+  (diminish 'abbrev-mode)
+  ;; (diminish )
+  ;; (use-package spaceline)
+  ;; (spaceline-spacemacs-theme)
+  ;; (spaceline-emacs-theme)
+
+  (use-package neotree)
+  (global-set-key [f8] 'neotree-toggle)
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+
+
+  (defun dos2unix ()
+	"Replace DOS eolns CR LF with Unix eolns CR"
+	(interactive)
+	(goto-char (point-min))
+	(while (search-forward "\r" nil t) (replace-match "")))
+
+  ;; (add-hook 'after-init-hook 'global-company-mode)
+  ;; (add-hook! 'emacs-startup-hook
+  ;; 		   (setq gc-cons-threshold 16777216
+  ;; 				 gc-cons-percentage 0.1
+  ;; 				 file-name-handler-alist last-file-name-handler-alist))
+
+
+#+end_src
+
+
+* LSP Mode
+
+
+#+begin_src emacs-lisp
+	 ;; TODO(afb) :: Setup keybinds
+
+   ;; (use-package lsp-pyright
+   ;;   :hook (python-mode . (lambda () (require 'lsp-pyright)))
+   ;;   :init (when (executable-find "python3")
+   ;; 		  (setq lsp-pyright-python-executable-cmd "python3"))
+   ;; )
+
+   ;; (use-package lsp-mode
+   ;; :hook ((c-mode          ; clangd
+   ;; c++-mode        ; clangd
+   ;; c-or-c++-mode   ; clangd
+  ;; python-mode     ; pyright
+  ;; ) . lsp-deferred)
+  ;; :commands lsp
+	 ;;   :config
+
+	   ;; (setq lsp-enable-symbol-highlighting nil)
+	   ;; (setq lsp-ui-doc-show-with-cursor nil)
+	   ;; (setq lsp-ui-doc-show-with-mouse nil)
+	   ;; (setq lsp-lens-enable nil)
+	   ;; (setq lsp-headerline-breadcrumb-enable nil)
+	   ;; (setq lsp-ui-sideline-enable nil)
+	   ;; (setq lsp-ui-sideline-enable nil)
+	   ;; (setq lsp-modeline-diagnostics-enable nil)
+
+  ;; (setq lsp-auto-uess-root t)
+	   ;; (setq lsp-log-io nil)
+	   ;; (setq lsp-restart 'auto-restart)
+	   ;; (setq lsp-enable-on-type-formatting nil)
+
+	   ;; (setq lsp-modeline-code-actions-enable nil)
+
+	   ;; (setq lsp-semantic-tokens-enable nil)
+	   ;; (setq lsp-enable-folding nil)
+	   ;; (setq lsp-enable-imenu nil)
+	   ;; (setq lsp-enable-snippet nil)
+	   ;; (setq read-process-output-max (* 1024 1024)) ;; 1MB
+	   ;; (setq lsp-idle-delay 0.5))
+
+
+	 ;; (use-package lsp-ui
+	 ;;   :commands lsp-ui-mode
+	 ;;   :config
+	 ;;   (setq lsp-ui-doc-enable nil)
+	 ;;   (setq lsp-ui-doc-header t)
+	 ;;   (setq lsp-ui-doc-include-signature t)
+	 ;;   (setq lsp-ui-doc-border (face-foreground 'default))
+	 ;;   (setq lsp-ui-sideline-show-code-actions t)
+	 ;;   (setq lsp-ui-sideline-delay 
+	 ;; 0.05))
 #+end_src
