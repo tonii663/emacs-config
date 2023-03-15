@@ -1,0 +1,843 @@
+#+TITLE: Aj's Emacs Config
+#+AUTHOR: Anthony Brown
+
+* Startup Performance
+Make startup faster by reducing the frequency of garbage collection and then use a hook to measure Emacs startup time.
+Also, turn on =lexical-binding= for the init file!
+
+#+begin_src emacs-lisp
+  ;; Window transperency
+  ;; (set-frame-parameter (selected-frame) 'alpha '(100 . 100))
+  ;; (add-to-list 'default-frame-alist '(alpha . (100 . 100)))
+  ;; (set-frame-parameter (selected-frame) 'fullscreen 'maximized)
+  ;; (add-to-list 'default-frame-alist '(fullscreen . maximized))
+
+#+end_src
+
+** Garbage Collection Stuff (Need to understand)
+#+begin_src emacs-lisp
+
+	;; (defconst user/gc-cons-threshold (* 32 1024 1024) "Preferred garbage collection threshold value (32MB).")
+	;; (defconst user/gc-cons-percentage 0.1 "Preferred garbage collection percentage value (10%).")
+
+	;; (defun user/defer-garbage-collection ()
+	;;   "Defer garbage collection by maximizing the collection threshold."
+	;;   (setq gc-cons-threshold most-positive-fixnum
+	;; 		gc-cons-percentage 1.0))
+	;; (defun user/restore-garbage-collection ()
+	;;   "Restore the garbage collection threshold parameters in a deferred fashion."
+	;;   (setq gc-cons-threshold user/gc-cons-threshold
+	;; 		gc-cons-percentage user/gc-cons-percentage))
+
+
+
+  ;; ";; Defer garbage collection until after initialization"
+  ;; (user/defer-garbage-collection)
+  ;; (add-hook 'emacs-startup-hook #'user/restore-garbage-collection)
+#+end_src
+
+
+* USEFUL Settings
+** Buffer Settings
+#+begin_src emacs-lisp
+
+  (use-package emacs
+	:)
+  ;; Start with windows split
+  ;; (split-window-horizontally)
+
+  ;; Save location in files on exit
+  (save-place-mode 1)
+
+  ;; Automatically refresh files that were edited outside of emacs
+  (global-auto-revert-mode 1)
+
+  ;; Set every buffer to use utf-8
+  (set-language-environment "UTF-8")
+
+  ;; Default size for tabs
+  (setq-default tab-width 4)
+
+  ;; Load any packages in this directory
+  (add-to-list 'load-path (concat user-emacs-directory "lisp/" ))
+
+  ;; I didn't have to rebind keys to move between windows
+  ;; This is a builting package that already does it. But it
+  ;; uses shift (S) instead of meta (M).
+  ;; (windmove-default-keybindings)
+
+#+end_src
+
+** Config File Settings
+If I customize a setting from the UI, DO NOT modify my init.el file add everting to (custom-vars.el).
+
+#+begin_src emacs-lisp  
+  (setq custom-file (locate-user-emacs-file "custom-vars.el"))
+  (load custom-file 'noerror 'nomessage)
+#+end_src
+
+** General Emacs Settings
+- Setting up how emacs should operate.
+#+begin_src emacs-lisp
+  ;; Path to load custom packages manually
+  (add-to-list 'load-path (concat user-emacs-directory "lisp/" ))
+
+  (setq inhibit-startup-message t)  ;; Disable startup message
+  (setq ring-bell-function 'ignore) ;; Disable the alert bell
+  (setq undo-limit 20000000)        ;; Increase amount of undos
+  (setq undo-strong-limit 40000000) ;; Limit the max amount of undos
+  (setq create-lockfiles nil)       ;; Files starting and ending with # no longer gets created
+  (setq-default truncate-lines t)   ;; Truncate all lines. Don't fold
+  (setq savehist-mode t)            ;; Persists minibuffer history between sessions.
+  
+  ;; Trucncate lines in markdown documents
+  (add-hook 'markdown-mode-hook (lambda () (setq truncate-lines nil)))
+
+  ;; No screwing with my middle mouse button
+  (global-unset-key [mouse-2])
+
+  ;; Start in fullscreen
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+#+end_src
+
+- Set emacs backup file backup functionality 
+#+begin_src emacs-lisp
+
+  ;; Set backup directory and keep my project folders clean
+  (setq backup-directory-alist '(("." . "~/.emacs_saves")))
+  
+  ;; Disable making backup files.
+  ;; (setq make-backup-files nil)
+#+end_src
+
+- Set auto save file functionality
+  #+begin_src emacs-lisp
+	;; https://www.youtube.com/watch?v=XZjyJG-sFZI
+	;; Auto save dosen't create the path automatically.
+	;; (setq backup-dir '"~/.emacs_backups")
+	;; (make-directory 'backup-dir)
+
+	;; (setq auto-save-list-file-prefix backup-dir)
+	;;	(setq auto-save-file-name-transforms '(".*" backup-dir) t)
+
+  #+end_src
+  
+** Disable Menu, toolbar, tooltip and scrollbar
+#+begin_src emacs-lisp
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+  (tooltip-mode -1)
+#+end_src
+
+** Setup basic visuals
+#+begin_src emacs-lisp
+  (electric-pair-mode 1)     ;; Auto create closing braces
+  (global-hl-line-mode)      ;; Higlight the line I am on
+  (show-paren-mode 1)        ;; Show matching parens
+  (display-time)             ;; Display time on mode line
+  (column-number-mode)       ;; Show column number
+  (blink-cursor-mode -1)     ;; Don't flash cursor
+
+  (setq show-paren-delay 0.0) ;; Highlight matching delimiters instantly
+#+end_src
+
+
+
+
+* PACKAGE MANAGEMENT
+** Setup package.el to work with MELPA.
+
+#+begin_src emacs-lisp
+  (require 'package)
+
+  (setq package-archives '(("elpa" . "https://elpa.gnu.org/packages/")
+						   ("org" . "https://orgmode.org/elpa/")
+						   ("melpa" . "https://melpa.org/packages/")))
+
+  (package-initialize)
+
+  ;; If package archive is empty then refresh them.
+  (unless package-archive-contents
+	(package-refresh-contents))
+#+end_src
+
+** Installing use-package
+
+#+begin_src emacs-lisp
+  ;; Initialize use-package on non linux machines
+  (unless (package-installed-p 'use-package)
+	(package-install 'use-package))
+
+  (require 'use-package)
+  ;; Always ensure packages are downloaded by default
+  ;; (setq use-package-always-ensure t)
+
+#+end_src
+
+** Installing quelpa
+
+#+begin_src emacs-lisp
+  ;; A tool to compile and install Emacs Lisp packages locally from local
+  ;; or remote source code. I am using it for doom-nano-themes
+  (use-package quelpa
+	:custom
+	(quelpa-update-melpa-p nil "Don't update the MELPA git repo"))
+
+  (use-package quelpa-use-package)
+#+end_src
+
+** DIMINISH
+Don't show certain minor modes on the modeline
+#+begin_src emacs-lisp
+  (use-package diminish)
+#+end_src
+
+
+* GCMH
+#+begin_src emacs-lisp
+
+  (use-package gcmh
+	:ensure t
+	:demand t
+	:config
+	(gcmh-mode 1))
+
+#+end_src
+
+
+
+
+* THEMES and FONTS and COLORS
+** THEME
+#+begin_src emacs-lisp
+  ;; Commented out because I don't want it to load everytime because it takes time;
+  ;; (use-package nano-theme
+  ;;   :defer t
+  ;;   :quelpa (nano-theme
+  ;; 		   :fetcher github
+  ;; 		   :repo "rougier/nano-theme"))
+
+  ;; Custom theme I found <https://gitlab.com/jessieh/mood-one-theme.git>
+
+  (use-package adwaita-dark-theme
+	:ensure t
+	:config
+	(setq doom-themes-enable-bold t)
+	(setq doom-themes-enable-italic nil))
+
+  (use-package doom-themes
+	:diminish)
+
+  (load "mood-one-theme")
+
+
+  ;; Sets cursor color
+  ;; (set-cursor-color "#fff000")
+
+  ;; Other themes
+  ;; tango-dark, misterioso, doom-palenight, doom-one, doom-old-hope, adwaita-dark, nano-dark
+  (load-theme 'mood-one t)
+#+end_src
+
+** FONTS
+Set font size and background color
+#+begin_src emacs-lisp
+
+  (set-face-attribute 'default nil :height 110)  ;; Set the font size
+  ;; (set-face-attribute 'default nil :family "Fira Code" :height 110)  ;; Set the font size
+  (setq-default line-spacing 0.10)               ;; Set the line spacing
+
+  ;; Don't change text color when the line is highlighted. Do after
+  ;; turning on global-hl-line-mode.
+  (set-face-attribute 'hl-line nil :inherit nil :background "#333333")
+
+  (add-to-list 'default-frame-alist '(font . "Fira Code 10"))
+#+end_src
+
+** OLD COMMENTS HIGLIGHTING
+#+begin_src emacs-lisp
+  ;; (setq fixme-modes '(c++-mode c-mode emacs-lisp-mode csharp-mode java-mode python-mode rust-mode))
+
+  ;; (make-face 'font-lock-todo-face)
+  ;; (make-face 'font-lock-note-face)
+  ;; (make-face 'font-lock-remove-face)
+  ;; (make-face 'font-lock-important-face)
+
+  ;; Applys the font lock to all the modes in 'fixme-modes'
+  ;; (mapc (lambda (mode)
+  ;; 		(font-lock-add-keywords
+  ;; 		 mode
+  ;; 		 '(("\\<\\(TODO\\)" 1 'font-lock-todo-face t)
+  ;; 		   ("\\<\\(NOTE\\)" 1 'font-lock-note-face t)
+  ;; 		   ("\\<\\(REMOVE\\)" 1 'font-lock-note-face t)
+  ;; 		   ("\\<\\(IMPORTANT\\)" 1 'font-lock-important-face t))))
+  ;; 	  fixme-modes)
+
+
+  ;; (modify-face 'font-lock-todo-face "Red" nil nil t nil t nil nil)
+  ;; (modify-face 'font-lock-note-face "Dark Green" nil nil t nil t nil nil)
+  ;; (modify-face 'font-lock-remove-face "magenta1" nil nil t nil t nil nil)
+  ;; (modify-face 'font-lock-important-face "Yellow" nil nil t nil t nil nil)
+  
+#+end_src
+
+** HL TODO 
+#+begin_src emacs-lisp
+
+  (use-package hl-todo
+	:custom
+	(hl-todo-keyword-faces '(("TODO" . "Red")
+							 ("REMOVE" . "magenta1")
+							 ("IMPORTANT" . "Yellow")
+							 ("NOTE" . "Dark Green")))
+	:hook
+	((prog-mode rust-mode) . hl-todo-mode))
+
+#+end_src
+
+
+* DASHBOARD
+Emacs starup dashboard
+#+begin_src emacs-lisp
+  (use-package dashboard
+	:config
+	(dashboard-setup-startup-hook)
+	:custom
+	(dashboard-banner-logo-title "Welcome Anthony" "Set the title")
+	(dashboard-startup-banner 2 "Set the banner")
+	(dashboard-center-content t)
+	(dashboard-items '((projects . 5)
+					   (recents  . 5)) "What items show on the dashboard")
+	(dashboard-set-init-info t)
+	(dashboard-projects-switch-function 'counsel-projectile-switch-project-by-name))
+
+  (use-package page-break-lines)  `
+#+end_src
+
+
+* XREF
+#+begin_src emacs-lisp
+
+  ;; Do before ivy else it fucks with your keybindings
+  
+  (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
+  (setq xref-show-definitions-function #'xref-show-definitions-completing-read)
+  (global-set-key (kbd "C-.") 'xref-find-definitions-other-window)
+
+#+end_src
+
+
+* IVY, COUNSEL, SWIPER, PRESCIENT
+** Counsel setup
+#+begin_src emacs-lisp
+  (use-package counsel
+	:diminish
+	:bind(("M-x"   . counsel-M-x)
+		  ("C-x b" . counsel-ibuffer)
+		  ("M-."   . counsel-find-file)
+		  ("C-c k" . counsel-ag))
+	:custom
+	(ivy-initial-inputs-alist nil "Don't start searches with ^"))
+
+#+end_src
+
+** Ivy setup and swiper keybinds
+#+begin_src emacs-lisp
+  (use-package ivy
+	:diminish
+	:bind (("C-s" . swiper)
+	   :map ivy-minibuffer-map
+	   ("C-l" . ivy-alt-done)
+	   ("C-j" . ivy-next-line)
+	   ("C-k" . ivy-previous-line)
+	   :map ivy-switch-buffer-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-l" . ivy-done)
+	   ("C-d" . ivy-switch-buffer-kill)
+	   :map ivy-reverse-i-search-map
+	   ("C-k" . ivy-previous-line)
+	   ("C-d" . ivy-reverse-i-search-kill))
+	:config
+	(ivy-mode))
+#+end_src
+
+** PRESCIENT
+Makes the filtering of ivy menus smarter. It gives prefrences to recently used
+commands.
+#+begin_src emacs-lisp
+  (use-package ivy-prescient
+	:after counsel
+	:diminish
+	:config
+	(ivy-prescient-mode 1))
+
+  ;; Sort by length
+  (setq prescient-sort-length-enable t)
+#+end_src
+
+
+* PROJECTILE
+Project Management
+#+begin_src emacs-lisp
+
+  (use-package projectile
+	:ensure t
+	:init
+	(projectile-mode +1)	
+	:bind (:map projectile-mode-map
+				("C-c p" . projectile-command-map))
+	:custom
+	(projectile-enable-caching t)
+	(projectile-indexing-method 'hybrid "May cause issues on Windows. Try 'alien' it still causes issues though")
+	(projectile-globally-ignored-file-suffixes '("#" "~" ".swp" ".o" ".so" ".exe" ".dll" ".elc" ".pyc" ".jar"))
+	(projectile-globally-ignored-directories '(".git" "node_modules" "__pycache__" ".vs" "build"))
+	(projectile-globally-ignored-files '("TAGS" "tags" ".DS_Store"))
+	(projectile-completion-system 'ivy "Use ivy for completions")
+	:config
+	(when (file-directory-p '"w:/")
+	  (setq projectile-project-search-path '("w:/"))))
+
+  (use-package counsel-projectile
+	:config (counsel-projectile-mode))
+
+#+end_src
+
+
+* WRITEROOM MODE
+Focus/Zen mode
+#+begin_src emacs-lisp  
+  (use-package writeroom-mode
+	:defer t
+	:bind(("C-M-<" . writeroom-decrease-width)
+		  ("C-M->" . writeroom-increase-width)
+		  ("C-M-=" . writeroom-adjust-width)))
+
+#+end_src
+
+
+* HELPFUL
+Change the default emacs help funtionality to give more information.
+#+begin_src emacs-lisp
+  (use-package helpful
+	:commands (helpful-callable helbful-variable helpful-command helpful-key)
+	:custom
+	(counsel-describe-function-function #'helpful-callable)
+	(counsel-describe-variable-function #'helpful-variable)
+	(counsel-describe-symbol-function   #'helpful-symbol)
+	:bind
+	([remap describe-function] . counsel-describe-function)
+	([remap describe-command]  . helpful-command)
+	([remap describe-variable] . counsel-describe-variable)
+	([remap describe-key]      . helpful-key)
+	([remap describe-symbol]   . counsel-describe-symbol)
+  )
+#+end_src
+
+
+* MAGIT
+Github client for emacs.
+#+begin_src emacs-lisp
+  (use-package magit
+	:diminish
+	:defer t)
+#+end_src
+
+
+* WHICH KEY
+Shows the possible key combinations when you partially enter a key
+combination
+#+begin_src emacs-lisp
+  (use-package which-key
+	:diminish which-key-mode
+	:config
+	(which-key-mode)
+	(setq which-key-idle-delay 2))
+#+end_src
+
+
+* ACE JUMP MODE
+** Jump to any leading character on screen
+#+begin_src emacs-lisp
+  (use-package ace-jump-mode
+	:defer
+	:diminish
+	:bind ("C->" . ace-jump-mode))
+#+end_src
+
+
+* UNIQUIFY
+Provides better unique names when there are name conflicts between buffers.
+#+begin_src emacs-lisp
+
+  (use-package uniquify
+	:custom
+	(uniquify-buffer-name-style 'forward "Show file path before buffer name")
+			(uniquify-after-kill-buffer-p t "Update buffer names after killing")
+			(uniquify-ignore-buffers-re "^\\*" "Avoid renaming special buffers"))
+
+#+end_src
+
+
+* MODE LINE
+** Data formating
+#+begin_src emacs-lisp
+  (setq display-time-format "%l:%M %p %b %y"
+		display-time-default-load-average nil)
+  
+#+end_src
+
+** MOOD LINE
+#+begin_src emacs-lisp
+
+  (use-package mood-line
+	:ensure t
+	:init
+	(mood-line-mode)
+	(defun mood-line-segment-position ()
+	  "Display the current cursor position in the mode-line, with region size if applicable."
+	  (let ((region-size (when (use-region-p)
+						   (propertize (format " (%sL:%sC)"
+											   (count-lines (region-beginning)
+															(region-end))
+											   (- (region-end) (region-beginning)))
+									   'face 'mood-line-unimportant)))
+			(narrowed (when (buffer-narrowed-p)
+						"[N]"))
+			(position (propertize " %p%% " 'face 'mood-line-unimportant)))
+		(list "%l:%c" position region-size narrowed)))
+
+	(defun mood-line-segment-misc-info ()
+	  "Displays the current value of `mode-line-misc-info' in the mode-line. Unlike the original, it also adds keyboard macro recording status."
+	  (let ((misc-info (concat (format-mode-line mode-line-misc-info 'mood-line-unimportant)
+							   (when defining-kbd-macro
+								 (format-mode-line mode-line-defining-kbd-macro
+												   'mood-line-major-mode)))))
+		(unless (string= (mood-line--string-trim misc-info) "")
+		  (concat (mood-line--string-trim misc-info) "  ")))))
+#+end_src
+
+
+* AUTO-COMPLETE
+#+begin_src emacs-lisp
+  (use-package auto-complete
+	:diminish
+	:hook ((prog-mode rust-mode) . auto-complete-mode)
+	:config
+	(global-set-key (kbd "M-<return>") 'auto-complete)
+	(ac-config-default)
+	:custom
+	(ac-auto-start nil "Don't start auto-complete popup automatically")
+	(ac-ignore-case 'smart "Ignores case only when a prefix doesn't contain any upper case letters."))
+
+#+end_src
+
+
+* CC MODE
+#+begin_src emacs-lisp
+
+  ;; (ac-config-default)
+  ;; (setq ac-auto-start nil)
+  ;; (setq ac-ignore-case 'smart)
+
+  ;; My preferred C-Style coding format
+  (c-add-style "anthony-cc-style"
+			   '((c-basic-offset . 4)
+				 (tab-width . 4)				 
+				 (c-offsets-alist (case-label . +)
+								  (substatement-open . 0)
+								  (inline-open . 0)
+								  (statement-cont . 0)
+								  (statement-case-open . 0)
+								  (statement-cont . 0)
+								  (brace-list-close  0)
+								  )))
+
+  (setq c-default-style  
+		'((java-mode . "anthony-cc-style")
+		  (csharp-mode . "anthony-cc-style")
+		  (other . "anthony-cc-style")))
+
+
+  (defun anthony-c-mode-common-config ()
+	(message "CC MODE"))
+
+  (add-hook 'c-mode-common-hook 'anthony-c-mode-common-config)
+#+end_src
+
+
+
+* C and C++
+#+begin_src emacs-lisp
+
+
+  (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
+  (add-to-list 'auto-mode-alist '("\\.hpp\\'" . c++-mode))
+
+  (defun anthony-c-hook()
+	(defun casey-find-corresponding-file ()
+	  "Find the file that corresponds to this one."
+	  (interactive)
+	  (setq CorrespondingFileName nil)
+	  (setq BaseFileName (file-name-sans-extension buffer-file-name))
+	  (if (string-match "\\.c" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".h")))
+	  (if (string-match "\\.h" buffer-file-name)
+		  (if (file-exists-p (concat BaseFileName ".c")) (setq CorrespondingFileName (concat BaseFileName ".c"))
+			(setq CorrespondingFileName (concat BaseFileName ".cpp"))))
+	  (if (string-match "\\.hin" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".cin")))
+	  (if (string-match "\\.cin" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".hin")))
+	  (if (string-match "\\.cpp" buffer-file-name)
+		  (setq CorrespondingFileName (concat BaseFileName ".h")))
+	  (if CorrespondingFileName (find-file CorrespondingFileName)
+		(error "Unable to find a corresponding file")))
+
+	(defun casey-find-corresponding-file-other-window ()
+	  "Find the file that corresponds to this one."
+	  (interactive)
+	  (find-file-other-window buffer-file-name)
+	  (casey-find-corresponding-file)
+	  (other-window -1))
+
+	(define-key c++-mode-map [f3] 'casey-find-corresponding-file)
+	(define-key c++-mode-map [f4] 'casey-find-corresponding-file-other-window)
+
+
+	(defun anthony-header-file-format()
+	  ;; Insert header guards.
+	  (setq baseFileName (file-name-sans-extension (file-name-nondirectory buffer-file-name)))
+	  (insert "#ifndef ")
+	  (push-mark)
+	  (insert baseFileName)
+	  (upcase-region (mark) (point))
+	  (pop-mark)
+	  (insert "_H\n")  
+	  (insert "#define ")
+	  (push-mark)
+	  (insert baseFileName)
+	  (upcase-region (mark) (point))
+	  (pop-mark)
+	  (insert "_H\n\n\n")
+	  (insert "#endif"))
+
+	(cond ((file-exists-p buffer-file-name) t)
+		  ((string-match "[.]h" buffer-file-name) (anthony-header-file-format))
+		  ((string-match "[.]hpp" buffer-file-name) (anthony-header-file-format))))
+
+  (add-hook 'c-mode-common-hook 'anthony-c-hook)
+
+
+#+end_src
+
+
+* CSHARP
+#+begin_src emacs-lisp
+
+
+  (use-package csharp-mode
+	:mode "\\.cs\\'")
+#+end_src
+
+
+* GLSL
+#+begin_src emacs-lisp
+
+  (use-package glsl-mode
+	:mode
+	("\\.frag\\'" . glsl-mode)
+	("\\.vert\\'" . glsl-mode)
+	("\\.glsl\\'" . glsl-mode))
+
+#+end_src
+
+
+* RUST
+#+begin_src emacs-lisp
+
+
+  (use-package rust-mode
+	:mode
+	("\\.rs\\'" . rust-mode)
+	:hook(rust-mode . lsp-deferred))
+
+#+end_src
+
+
+* LSP MODE
+#+begin_src emacs-lisp
+  ;; TODO(afb) :: Consider
+
+  (use-package lsp-mode
+	:commands (lsp lsp-deferred)
+	:custom
+	(lsp-keymap-prefix "C-c l")
+	:config
+	(lsp-enable-which-key-integration t))
+
+#+end_src
+
+
+* TYPESCIPT
+#+begin_src emacs-lisp
+
+  ;; (use-package typescript-mode
+  ;;   :mode "\\.ts\\'"
+  ;;   :hook(typescript-mode . lsp-deferred))
+
+#+end_src
+
+
+* COMPILING
+#+begin_src emacs-lisp
+  (if (eq system-type 'windows-nt)
+	  (setq anthony-makescript "build.bat")
+	(setq anthony-makescript "build.sh"))
+
+  (use-package compile
+	:config
+	(setq compilation-context-lines 0))
+
+  (defun find-project-directory-recursive ()
+	"Recursively search for a makefile."
+	(interactive)
+	(if (file-exists-p anthony-makescript) t
+	  (cd "../")
+	  (find-project-directory-recursive)))
+
+
+  (defun make-without-asking ()
+	"Make the current build."
+	(interactive)
+	(if (find-project-directory-recursive) (compile anthony-makescript))
+	(other-window 1))
+
+  (global-set-key (kbd "M-m") 'make-without-asking)
+
+  ;; TODO(afb) :: Move to somewhere more sensible
+  (defun search-man-for-function(name)
+	(interactive "sFunction Name: \n")
+	(setq cmnd (concat "wsl -e bash -c \"man " name "\""))
+	(shell-command cmnd))
+
+
+#+end_src
+
+
+* BUFFER NAVIGATION
+** Custom functions
+#+begin_src emacs-lisp
+
+  (defun new-line-below-and-move()
+	(interactive)
+	(move-end-of-line 1)
+	(open-line 1)
+	(next-line))
+
+  (defun new-line-above-and-move()
+	(interactive)
+	(move-beginning-of-line 1)
+	(open-line 1))
+
+  
+  (defun open-file-other-window()
+	(interactive)
+	(setq old-buffer-name (buffer-name))
+	(counsel-find-file)
+	(setq new-buffer-name (buffer-name))
+	(switch-to-buffer old-buffer-name)
+	(other-window 1)
+	(switch-to-buffer new-buffer-name))
+
+
+#+end_src
+** Custom Buffer Movement Keybinds
+#+begin_src emacs-lisp
+  ;; Buffer Navigation
+  (global-set-key (kbd "<home>") 'beginning-of-buffer)
+  (global-set-key (kbd "<end>") 'end-of-buffer)
+
+  ;; Zooming
+  (global-set-key (kbd "C-=") 'text-scale-increase)
+  (global-set-key (kbd "C--") 'text-scale-decrease)
+
+  ;; Opening buffers
+  (global-set-key (kbd "M->") 'open-file-other-window)
+
+  ;; Execting custom commands
+  (global-set-key [f11] 'search-man-for-function)
+  (global-set-key [f10] 'shell-command)
+
+
+  ;; Switching buffers
+  (global-set-key (kbd "M-<up>")    'windmove-up)
+  (global-set-key (kbd "M-<down>")  'windmove-down) 
+  (global-set-key (kbd "M-<left>")  'windmove-left) 
+  (global-set-key (kbd "M-<right>") 'windmove-right)
+  (global-set-key (kbd "C-x b") 'counsel-switch-buffer)
+
+
+  ;; Keyboard Macro
+  (global-set-key (kbd "C-{") 'start-kbd-macro)
+  (global-set-key (kbd "C-}") 'end-kbd-macro)
+  (global-set-key (kbd "C-'") 'call-last-kbd-macro)
+
+  ;; Errors
+  (global-set-key (kbd "C-\\") 'next-error)
+#+end_src
+
+** Custom Buffer Modificaton Keybinds
+#+begin_src emacs-lisp
+  ;; Creating new lines
+  (global-set-key (kbd "C-o") 'new-line-below-and-move)
+  (global-set-key (kbd "C-S-o") 'new-line-above-and-move)
+
+  ;; Saving
+  (global-set-key (kbd "M-s") 'save-buffer) 
+
+  ;; Search and Replace
+  (global-set-key (kbd "M-/") 'query-replace)
+#+end_src
+
+
+* CUP and JFlex
+#+begin_src emacs-lisp
+  (add-to-list 'load-path (concat user-emacs-directory "lisp/" ))
+  (load "cup-mode")
+  (add-to-list 'auto-mode-alist '("\\.cup\\'" . cup-java-mode))
+#+end_src
+
+
+* TESTING
+#+begin_src emacs-lisp
+
+  (defun dos2unix ()
+	"Replace DOS eolns CR LF with Unix eolns CR"
+	(interactive)
+	(goto-char (point-min))
+	(while (search-forward "\r" nil t) (replace-match "")))
+
+  (use-package eglot
+	:ensure t)
+
+  (use-package company
+	:diminish)
+
+  (use-package bug-hunter)
+  (setq comment-auto-fill-only-comments t)
+
+  (use-package highlight-numbers
+	:hook
+	(prog-mode . highlight-numbers-mode))
+
+  (use-package ag)
+
+  (use-package dumb-jump
+	:ensure t)
+  
+  (use-package eldoc
+	:ensure t
+	:diminish eldoc-mode
+	:hook (prog-mode . turn-on-eldoc-mode))
+#+end_src
